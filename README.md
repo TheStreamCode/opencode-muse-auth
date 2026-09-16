@@ -18,6 +18,10 @@ Then run `/connect` in opencode, pick the `meta` provider and the
 Enter the code in your browser (your own Meta account) and the login
 completes by itself.
 
+Verified end-to-end against the published package: isolated project with
+only `"plugin": ["opencode-muse-auth"]`, live chat on `meta/muse-spark-1.3`
+billed to subscription.
+
 ## Requirements
 
 - opencode with plugin support
