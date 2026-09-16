@@ -1,6 +1,6 @@
 {
   "name": "opencode-muse-auth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Muse Spark in opencode billed to the Muse Code monthly subscription (Meta device login, no API key)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
