@@ -1,0 +1,45 @@
+{
+  "name": "opencode-muse-auth",
+  "version": "0.1.0",
+  "description": "Muse Spark in opencode billed to the Muse Code monthly subscription (Meta device login, no API key)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "license": "MIT",
+  "author": "TheStreamCode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheStreamCode/opencode-muse-auth.git"
+  },
+  "homepage": "https://github.com/TheStreamCode/opencode-muse-auth#readme",
+  "bugs": {
+    "url": "https://github.com/TheStreamCode/opencode-muse-auth/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "meta",
+    "muse",
+    "muse-spark",
+    "subscription",
+    "oauth",
+    "auth",
+    "plugin"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.ts\"",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.18.31",
+    "@types/node": "^22.20.3",
+    "typescript": "^7.0.2"
+  }
+}
