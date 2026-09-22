@@ -34,6 +34,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "pretest": "npm run build",
     "test": "node --test --test-concurrency=1 \"tests/*.test.ts\"",
     "prepublishOnly": "npm run build"
   },
