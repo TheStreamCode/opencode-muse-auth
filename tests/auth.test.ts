@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { mkdtempSync } from "node:fs"
+import { mkdtempSync, readFileSync } from "node:fs"
 import {
   readCache,
   writeCache,
@@ -46,6 +46,19 @@ test("cache roundtrip keeps credentials", async () => {
 
 test("cache miss resolves empty", async () => {
   assert.equal(await readCache(join(tmpdir(), "muse-auth-absent.json")), "")
+})
+
+test("cache never persists the OAuth access token", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "muse-auth-"))
+  const path = join(dir, "creds.json")
+  await writeCache(
+    { oauthAccessToken: "dca-secret", apiKey: "LLM|k", accountId: "uid-1", email: "u@e.c" },
+    path,
+  )
+  const raw = readFileSync(path, "utf8")
+  assert.ok(!raw.includes("dca-secret"))
+  assert.ok(!raw.includes("oauthAccessToken"))
+  assert.deepStrictEqual(JSON.parse(raw), { apiKey: "LLM|k", accountId: "uid-1", email: "u@e.c" })
 })
 
 test("device authorize validates fields", async () => {

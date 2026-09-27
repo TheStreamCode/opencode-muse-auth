@@ -30,7 +30,15 @@ export interface DeviceAuthorization {
 }
 
 export interface MintedCredential {
+  // In-memory only: writeCache never persists the OAuth token (see below).
   oauthAccessToken: string
+  apiKey: string
+  accountId: string
+  email?: string
+}
+
+/** The only fields ever written to the credential cache. */
+export interface CachedCredential {
   apiKey: string
   accountId: string
   email?: string
@@ -71,8 +79,13 @@ export async function readCache(path: string = CACHE_PATH): Promise<string> {
 }
 
 export async function writeCache(credentials: MintedCredential, path: string = CACHE_PATH): Promise<void> {
+  // Retention minimization: persist only what inference needs. The OAuth
+  // access token has unknown broader scope and nothing reads it back, so it
+  // must never touch disk — sanitize at the sink, whatever callers pass in.
+  const { apiKey, accountId, email } = credentials
+  const cached: CachedCredential = { apiKey, accountId, ...(email ? { email } : {}) }
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, JSON.stringify(credentials, null, 2))
+  await writeFile(path, JSON.stringify(cached, null, 2))
   try {
     await chmod(path, 0o600)
   } catch {
