@@ -36,7 +36,9 @@ automatically to `muse-*` model ids):
 - **Login** — Meta device-code exchange (RFC 8628) inside `/connect`, then
   mints the stable account-bound inference key via the Model API. The key is
   cached locally (`~/.config/opencode/muse-code-sub.json`, owner-only
-  permissions where supported) and never printed.
+  permissions where supported) and never printed. The cache stores exactly
+  `apiKey`, `accountId`, and `email` — the OAuth access token from the
+  login flow is kept in memory only and never written to disk.
 - **Runtime** — an auth `loader` injects the cached key on every startup.
   The mint endpoint is aggressively rate-limited, so the plugin never
   re-mints on its own; re-run `/connect` only if access is revoked (401).
