@@ -1,9 +1,13 @@
 // opencode-muse-auth: Muse Spark in opencode billed to the Muse Code
 // monthly subscription (Meta device login, no API key, no third-party CLI).
+//
+// opencode v2 loads plugins from the module's default export, which must
+// carry an `id` and the `server` plugin function (the same shape opencode
+// 1.18.29+ already accepts; `setup` is the v2 entry point).
 import type { Plugin } from "@opencode-ai/plugin"
 import { readCache, writeCache, deviceAuthorize, pollToken, mintKey } from "./auth.js"
 
-export const MuseCodeAuth: Plugin = async () => {
+const MuseCodeAuth: Plugin = async () => {
   return {
     auth: {
       provider: "meta",
@@ -38,4 +42,10 @@ export const MuseCodeAuth: Plugin = async () => {
       },
     },
   }
+}
+
+export default {
+  id: "muse-code-auth",
+  server: MuseCodeAuth,
+  setup() {},
 }
