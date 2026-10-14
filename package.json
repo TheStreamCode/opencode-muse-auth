@@ -27,6 +27,7 @@
     "plugin"
   ],
   "files": [
+    "index.js",
     "dist",
     "README.md",
     "LICENSE",
@@ -42,5 +43,8 @@
     "@opencode-ai/plugin": "^1.19.0",
     "@types/node": "^22.20.3",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.27"
   }
 }
