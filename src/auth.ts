@@ -160,9 +160,12 @@ export async function pollToken(deviceCode: string, intervalS: number, expiresIn
   let interval = Math.max(MIN_INTERVAL_S, Number(intervalS) || 5)
   const deadline = Date.now() + Number(expiresInS || 600) * 1000
   let slowDowns = 0
+  let transportFailures = 0
   while (Date.now() < deadline) {
-    // The token endpoint answers HTTP errors (e.g. 400 authorization_pending)
-    // as part of the normal flow: never throw here, classify instead.
+    // The token endpoint answers OAuth errors (e.g. 400 authorization_pending) as part of the
+    // normal flow. A rejected fetch, an unparseable body, or a body carrying neither a token nor an
+    // OAuth error is a transport/proxy blip, not a verdict: count it and keep polling until the
+    // deadline. Only an explicit, terminal OAuth error aborts the device login.
     let body: TokenResponse | null = null
     try {
       const res = await fetch(TOKEN_URL, {
@@ -183,18 +186,23 @@ export async function pollToken(deviceCode: string, intervalS: number, expiresIn
     } catch {
       body = null
     }
-    if (body && !body.error) {
-      if (typeof body.access_token !== "string" || !body.access_token) {
-        throw new Error("token response has no access_token")
-      }
+
+    if (body && typeof body.access_token === "string" && body.access_token) {
       return body.access_token
     }
+
     if (body?.error === "slow_down") {
       slowDowns += 1
       interval = Math.max(MIN_INTERVAL_S, interval + SLOW_DOWN_STEP_S)
-    } else if (body?.error !== "authorization_pending") {
-      throw new Error(`login failed: ${body?.error || "unreadable token response"}`)
+    } else if (body?.error === "authorization_pending") {
+      // Expected while the user completes approval: keep polling at the current interval.
+    } else if (typeof body?.error === "string" && body.error) {
+      throw new Error(`login failed: ${body.error}`)
+    } else {
+      // Unreadable response: no body, no token, and no OAuth error to classify.
+      transportFailures += 1
     }
+
     const remaining = deadline - Date.now()
     if (remaining <= 0) break
     const { promise, resolve } = Promise.withResolvers<void>()
@@ -202,7 +210,11 @@ export async function pollToken(deviceCode: string, intervalS: number, expiresIn
     await promise
   }
   throw new Error(
-    slowDowns ? "login timed out after slow_down responses" : "login timed out waiting for approval",
+    slowDowns
+      ? "login timed out after slow_down responses"
+      : transportFailures > 0
+        ? `login timed out waiting for approval after ${transportFailures} network error${transportFailures === 1 ? "" : "s"}`
+        : "login timed out waiting for approval",
   )
 }
 
