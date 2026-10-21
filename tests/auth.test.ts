@@ -91,6 +91,72 @@ test("poll rejects terminal errors", async () => {
   await assert.rejects(pollToken("dc", 0, 600), /access_denied/)
 })
 
+test("poll survives transient transport failures", async () => {
+  const original = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = (async () => {
+    calls += 1
+    if (calls <= 2) {
+      throw new TypeError("fetch failed")
+    }
+    return calls === 3
+      ? new Response(JSON.stringify({ error: "authorization_pending" }), { status: 400 })
+      : new Response(JSON.stringify({ access_token: "dca-after-blip" }))
+  }) as typeof fetch
+  try {
+    assert.equal(await pollToken("dc", 1, 600), "dca-after-blip")
+    assert.equal(calls, 4)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test("poll keeps polling after unparseable token responses", async () => {
+  const original = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = (async () => {
+    calls += 1
+    return calls === 1
+      ? new Response("<html>bad gateway</html>", { status: 502 })
+      : new Response(JSON.stringify({ access_token: "dca-after-html" }))
+  }) as typeof fetch
+  try {
+    assert.equal(await pollToken("dc", 1, 600), "dca-after-html")
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test("poll still aborts on terminal OAuth errors after a transport blip", async () => {
+  const original = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = (async () => {
+    calls += 1
+    return calls === 1
+      ? Promise.reject(new TypeError("fetch failed"))
+      : new Response(JSON.stringify({ error: "access_denied" }), { status: 400 })
+  }) as typeof fetch
+  try {
+    await assert.rejects(pollToken("dc", 0, 600), /access_denied/)
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test("poll reports transport failures when it times out", async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed")
+  }) as typeof fetch
+  try {
+    await assert.rejects(pollToken("dc", 1, 1), /1 network error/)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test("mint validates subscription", async () => {
   stubFetch(() => ({ status: 200, body: KEY_OK }))
   const minted = await mintKey("dca-x")
