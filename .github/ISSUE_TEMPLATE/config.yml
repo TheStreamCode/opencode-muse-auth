@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Questions and support
+  - name: Questions and workflows
     url: https://github.com/TheStreamCode/opencode-muse-auth/discussions
-    about: Ask usage questions in GitHub Discussions
+    about: Ask usage questions and share workflows in GitHub Discussions
+  - name: Report a security vulnerability
+    url: https://github.com/TheStreamCode/opencode-muse-auth/security/advisories/new
+    about: Send sensitive findings privately. Never include credentials in a public issue.
+  - name: opencode support
+    url: https://github.com/sst/opencode/issues
+    about: Report problems that also occur without this plugin to the opencode project.

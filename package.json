@@ -6,12 +6,12 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "license": "MIT",
-  "author": "TheStreamCode",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/TheStreamCode/opencode-muse-auth.git"
+  "author": {
+    "name": "Michael Gasperini",
+    "url": "https://mikesoft.it"
   },
-  "homepage": "https://github.com/TheStreamCode/opencode-muse-auth#readme",
+  "repository": "github:TheStreamCode/opencode-muse-auth",
+  "homepage": "https://www.npmjs.com/package/opencode-muse-auth",
   "bugs": {
     "url": "https://github.com/TheStreamCode/opencode-muse-auth/issues"
   },

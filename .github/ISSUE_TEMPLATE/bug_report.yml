@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible defect
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a defect.
+        Fill in every field: reports without a version and a reproduction are hard to act on.
+        For security issues use SECURITY.md, never a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, package version or extension version.
+      placeholder: "v1.2.3"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, runtime and the third-party product version this integrates with.
+      placeholder: "Windows 11, Node.js 24, VS Code 1.104"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Smallest sequence that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Redact tokens, cookies and personal data.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: This report does not contain credentials or personal data.
+          required: true

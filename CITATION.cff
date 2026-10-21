@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "opencode-muse-auth"
+version: 0.4.0
+date-released: "2026-10-21"
+url: "https://github.com/TheStreamCode/opencode-muse-auth"
+repository-code: "https://github.com/TheStreamCode/opencode-muse-auth"
+license: MIT
+abstract: >-
+  Unofficial opencode plugin that registers the Muse Code subscription login
+  method for the built-in meta provider, minting an account-bound inference key
+  through a Meta device-code flow and keeping the OAuth token out of disk.
+keywords:
+  - byok
+  - coding-agent
+  - meta-ai
+  - muse-code
+  - muse-spark
+  - opencode
+  - typescript
+authors:
+  - family-names: Gasperini
+    given-names: Michael
+    affiliation: Mikesoft
