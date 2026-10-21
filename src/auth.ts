@@ -10,6 +10,7 @@ export const CLIENT_ID = "1031625952748946"
 export const DEVICE_URL = "https://auth.meta.com/oidc/device/authorization/"
 export const TOKEN_URL = "https://auth.meta.com/oidc/device/token/"
 export const KEY_URL = "https://api.meta.ai/muse-code/key"
+export const AUTH_CONTRACT_VERSION = 1
 export const CACHE_PATH = join(homedir(), ".config", "opencode", "muse-code-sub.json")
 
 const HEADERS: Record<string, string> = {
@@ -76,6 +77,30 @@ export async function readCache(path: string = CACHE_PATH): Promise<string> {
   } catch {
     return ""
   }
+}
+
+/**
+ * Resolve the provider key for the V1 auth loader.
+ *
+ * OpenCode's auth store is authoritative; the local cache is a legacy fallback
+ * for installs created before the host store became the primary source.
+ */
+export async function resolveLoaderKey(
+  auth: () => Promise<unknown>,
+  readCacheFn: () => Promise<string> = readCache,
+): Promise<string> {
+  try {
+    const stored = await auth()
+    if (stored && typeof stored === "object") {
+      const candidate = stored as { type?: unknown; key?: unknown }
+      if (candidate.type === "api" && typeof candidate.key === "string" && candidate.key.trim()) {
+        return candidate.key.trim()
+      }
+    }
+  } catch {
+    // Fall back to the legacy cache below.
+  }
+  return readCacheFn()
 }
 
 export async function writeCache(credentials: MintedCredential, path: string = CACHE_PATH): Promise<void> {

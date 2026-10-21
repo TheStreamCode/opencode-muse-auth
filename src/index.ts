@@ -4,9 +4,55 @@
 // V1 calls server(); V2 calls setup(). Each registers its own auth API.
 import type { Plugin } from "@opencode-ai/plugin"
 import { Plugin as V2Plugin, Integration } from "@opencode/plugin"
-import { readCache, writeCache, deviceAuthorize, pollToken, mintKey } from "./auth.js"
+import {
+  writeCache,
+  deviceAuthorize,
+  pollToken,
+  mintKey,
+  resolveLoaderKey,
+} from "./auth.js"
 
-const MuseCodeAuth: Plugin = async () => {
+const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000
+
+type LogClient = {
+  app?: {
+    log?: (input: {
+      body: {
+        service: string
+        level: "error"
+        message: string
+        extra?: Record<string, unknown>
+      }
+    }) => Promise<unknown>
+  }
+}
+
+/** Keep diagnostics useful without ever copying a credential into a log line. */
+function describeError(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error)
+  return text
+    .replace(/Bearer\s+\S+/gi, "Bearer ***")
+    .replace(/LLM\|[^\s"']+/g, "LLM|***")
+    .slice(0, 300)
+}
+
+async function logAuthFailure(client: unknown, error: unknown): Promise<void> {
+  try {
+    const candidate = client as LogClient | undefined
+    await candidate?.app?.log?.({
+      body: {
+        service: "opencode-muse-auth",
+        level: "error",
+        message: "Muse Code login failed",
+        extra: { error: describeError(error) },
+      },
+    })
+  } catch {
+    // Logging must never break the auth flow.
+  }
+}
+
+const MuseCodeAuth: Plugin = async ({ client }) => {
   return {
     auth: {
       provider: "meta",
@@ -27,7 +73,8 @@ const MuseCodeAuth: Plugin = async () => {
                   const minted = await mintKey(access)
                   await writeCache(minted)
                   return { type: "success", key: minted.apiKey }
-                } catch {
+                } catch (error) {
+                  await logAuthFailure(client, error)
                   return { type: "failed" }
                 }
               },
@@ -35,8 +82,8 @@ const MuseCodeAuth: Plugin = async () => {
           },
         },
       ],
-      loader: async () => {
-        const key = await readCache()
+      loader: async (auth) => {
+        const key = await resolveLoaderKey(auth)
         return key ? { apiKey: key } : {}
       },
     },
@@ -60,15 +107,19 @@ export default {
             const device = await deviceAuthorize()
             const url = device.verification_uri_complete || device.verification_uri
             const callback = (async () => {
-              const access = await pollToken(device.device_code, device.interval, device.expires_in)
-              const minted = await mintKey(access)
-              return {
-                type: "oauth" as const,
-                methodID,
-                access: minted.apiKey,
-                refresh: "",
-                expires: Number.MAX_SAFE_INTEGER,
-                metadata: { accountId: minted.accountId, ...(minted.email ? { email: minted.email } : {}) },
+              try {
+                const access = await pollToken(device.device_code, device.interval, device.expires_in)
+                const minted = await mintKey(access)
+                return {
+                  type: "oauth" as const,
+                  methodID,
+                  access: minted.apiKey,
+                  refresh: "",
+                  expires: Date.now() + TEN_YEARS_MS,
+                  metadata: { accountId: minted.accountId, ...(minted.email ? { email: minted.email } : {}) },
+                }
+              } catch (error) {
+                throw new Error(`Muse Code login failed: ${describeError(error)}`)
               }
             })()
             // The runtime awaits this promise after displaying the device code.

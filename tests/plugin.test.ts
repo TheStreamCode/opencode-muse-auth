@@ -67,6 +67,9 @@ test("V2 device flow returns only the inference key as its credential", async ()
     assert.equal(credential.access, "inference-key")
     assert.equal(credential.refresh, "")
     assert.equal(credential.methodID, registration.method.id)
+    assert.ok(Number.isFinite(credential.expires))
+    assert.ok(credential.expires > Date.now())
+    assert.notEqual(credential.expires, Number.MAX_SAFE_INTEGER)
     assert.ok(!JSON.stringify(credential).includes("temporary-oauth-secret"))
     assert.equal(registration.label(credential), "user@example.com")
   } finally {
@@ -95,7 +98,7 @@ test("V2 request hook leaves non-subscription connections unchanged", async () =
 })
 
 test("server plugin returns the auth hook for provider meta", async () => {
-  const hooks = await plugin.server()
+  const hooks = await plugin.server({ client: { app: { log: async () => {} } } })
   assert.ok(hooks.auth)
   assert.equal(hooks.auth.provider, "meta")
   assert.equal(typeof hooks.auth.loader, "function")
@@ -103,4 +106,62 @@ test("server plugin returns the auth hook for provider meta", async () => {
   assert.equal(hooks.auth.methods.length, 1)
   assert.equal(hooks.auth.methods[0].type, "oauth")
   assert.equal(typeof hooks.auth.methods[0].authorize, "function")
+})
+
+test("V1 loader prefers the host auth store over the legacy cache", async () => {
+  const hooks = await plugin.server({ client: { app: { log: async () => {} } } })
+  const loaded = await hooks.auth.loader(async () => ({ type: "api", key: "LLM|stored" }))
+  assert.deepEqual(loaded, { apiKey: "LLM|stored" })
+})
+
+test("V1 login failure is logged without secret material", async () => {
+  const original = globalThis.fetch
+  const logs = []
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    const body = url.includes("authorization") ? {
+      device_code: "device", user_code: "ABCD", verification_uri: "https://auth.meta.com/device",
+      interval: 1, expires_in: 600,
+    } : { error: "access_denied", error_description: "denied" }
+    return new Response(JSON.stringify(body), { status: url.includes("authorization") ? 200 : 400 })
+  }
+  try {
+    const hooks = await plugin.server({
+      client: {
+        app: {
+          log: async (entry) => {
+            logs.push(entry)
+          },
+        },
+      },
+    })
+    const auth = await hooks.auth.methods[0].authorize()
+    const result = await auth.callback()
+    assert.deepEqual(result, { type: "failed" })
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0].body.level, "error")
+    assert.match(logs[0].body.message, /Muse Code login failed/)
+    assert.ok(!JSON.stringify(logs).includes("Bearer "))
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test("V2 login failure rejects with a descriptive error", async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    const body = url.includes("authorization") ? {
+      device_code: "device", user_code: "ABCD", verification_uri: "https://auth.meta.com/device",
+      interval: 1, expires_in: 600,
+    } : { error: "access_denied", error_description: "denied" }
+    return new Response(JSON.stringify(body), { status: url.includes("authorization") ? 200 : 400 })
+  }
+  try {
+    const { registration } = await setupV2()
+    const auth = await registration.authorize({})
+    await assert.rejects(auth.callback, /Muse Code login failed/)
+  } finally {
+    globalThis.fetch = original
+  }
 })

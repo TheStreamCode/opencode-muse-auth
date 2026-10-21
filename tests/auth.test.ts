@@ -4,7 +4,13 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { mkdtempSync, readFileSync } from "node:fs"
 import {
+  AUTH_CONTRACT_VERSION,
+  CLIENT_ID,
+  DEVICE_URL,
+  KEY_URL,
+  TOKEN_URL,
   readCache,
+  resolveLoaderKey,
   writeCache,
   deviceAuthorize,
   pollToken,
@@ -101,4 +107,37 @@ test("mint validates subscription", async () => {
     body: { require_payment: true, action_url: "https://example.com/pay" },
   }))
   await assert.rejects(mintKey("dca-x"), /example\.com\/pay/)
+})
+
+test("auth contract is pinned", () => {
+  assert.equal(AUTH_CONTRACT_VERSION, 1)
+  assert.equal(CLIENT_ID, "1031625952748946")
+  assert.equal(DEVICE_URL, "https://auth.meta.com/oidc/device/authorization/")
+  assert.equal(TOKEN_URL, "https://auth.meta.com/oidc/device/token/")
+  assert.equal(KEY_URL, "https://api.meta.ai/muse-code/key")
+})
+
+test("loader key prefers the host auth store", async () => {
+  const key = await resolveLoaderKey(
+    async () => ({ type: "api", key: "LLM|stored" }),
+    async () => "LLM|cache",
+  )
+  assert.equal(key, "LLM|stored")
+})
+
+test("loader key falls back to the legacy cache", async () => {
+  assert.equal(
+    await resolveLoaderKey(async () => ({ type: "oauth" }), async () => "LLM|cache"),
+    "LLM|cache",
+  )
+  assert.equal(
+    await resolveLoaderKey(
+      async () => {
+        throw new Error("store unavailable")
+      },
+      async () => "LLM|cache",
+    ),
+    "LLM|cache",
+  )
+  assert.equal(await resolveLoaderKey(async () => undefined, async () => ""), "")
 })
