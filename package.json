@@ -42,11 +42,11 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.19.0",
+    "@opencode-ai/plugin": "^1.19.3",
     "@types/node": "^22.20.3",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@opencode/plugin": "^2.0.27"
+    "@opencode/plugin": "^2.0.32"
   }
 }
