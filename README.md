@@ -127,6 +127,9 @@ collide with Muse Code's builtins. If it appears anyway, one of these is true:
   `the local request adapter could not start`, and the provider stays on the direct endpoint;
 - `MUSE_CODE_ADAPTER=off` is set, which keeps the proxy but disables the reshaping;
 - you are on the V1 plugin API, which has no adapter;
+- the plugin is older than 0.5.1 or opencode is older than 2.2.4: 0.5.0 skipped the adapter when
+  the active `meta` credential was a plain API key, and opencode 2.2.0 loads the plugin without
+  invoking its V2 setup. Check `opencode plugin list` and `opencode --version`, then update;
 - Meta changed the gate, for example to a real per-client signature. Nothing in this plugin can
   forge one.
 
