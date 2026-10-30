@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-30
+
+### Documented
+
+- Troubleshooting now names the versions that matter: 0.5.1 or newer is required because 0.5.0
+  skipped the adapter for a plain `meta` API key, and opencode 2.2.4 or newer is required because
+  2.2.0 loads the plugin without invoking its V2 setup.
+
 ## [0.5.1] - 2026-10-30
 
 ### Fixed
