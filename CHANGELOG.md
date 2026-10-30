@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-30
+
 ### Fixed
 
 - Device login keeps polling through transient network failures and unreadable token responses until
   the device code expires, instead of aborting on the first blip. Terminal OAuth errors still stop
   the flow immediately.
+
+### Changed
+
+- Documented that a successful sign-in does not guarantee model access, and that Meta's
+  client-restriction 403 is not an expired key.
 
 ## [0.4.0] - 2026-10-21
 
