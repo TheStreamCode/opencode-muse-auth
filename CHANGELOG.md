@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-30
+
+### Fixed
+
+- Inference routing no longer depends on the V2 Muse OAuth credential: every `meta` request now goes
+  through the loopback adapter, so an existing `meta` API key keeps working after the update. The
+  V2 OAuth token is still used to override `Authorization` when that sign-in is active.
+- Documented that the adapter requires the V2 plugin module shape, invoked by opencode 2.2.4 or
+  newer; 2.2.0 loads the plugin but does not call its setup.
+
 ## [0.5.0] - 2026-10-30
 
 ### Added

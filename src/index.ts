@@ -178,22 +178,23 @@ export async function setupV2(
   }
 
   if (adapter) {
-    // Primary mechanism: the provider uses the adapter's /v1 origin as its
-    // request base URL. Native provider drivers honor this override.
+    // Every Meta inference request must reach the adapter: it reshapes the tool
+    // declarations the gate inspects, so the credential type does not matter
+    // (V1 API key or V2 OAuth). Native provider drivers honor this override.
     const baseUrl = adapter.baseUrl
     await ctx.session.hook("model.request", async (event) => {
-      if (await subscription()) event.baseURL = baseUrl
+      event.baseURL = baseUrl
     }, { providerID: "meta" })
   }
 
-  // Meta's native provider expects a bearer inference key, not the
-  // short-lived OAuth token used to mint it. Honor the active connection.
-  // AI SDK routes drop model.request.baseURL (opencode#55984), so this hook
-  // also rewrites the assembled request onto the adapter origin.
+  // Meta's native provider expects a bearer inference key, not the short-lived
+  // OAuth token used to mint it: when the active Muse connection resolves one,
+  // put it on the request. AI SDK routes drop model.request.baseURL
+  // (opencode#55984), so this hook also rewrites the assembled request onto the
+  // adapter origin.
   await ctx.session.hook("http.request", async (event) => {
     const credential = await subscription()
-    if (!credential) return
-    event.request.headers.set("Authorization", `Bearer ${credential.access}`)
+    if (credential) event.request.headers.set("Authorization", `Bearer ${credential.access}`)
     if (adapter) event.request = routeThroughAdapter(event.request, adapter.baseUrl)
   }, { providerID: "meta" })
 

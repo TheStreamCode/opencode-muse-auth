@@ -55,8 +55,11 @@ token from the login flow is kept in memory only and is never written to disk.
   with Muse Code's builtins on the way to `api.meta.ai`, restores them in the response, and
   normalizes parameters Meta rejects (`tool_choice`, reasoning effort, output-token floor,
   encrypted-reasoning include). The adapter's `/v1` origin becomes the per-request base URL; on
-  routes that ignore that override the plugin rewrites the assembled request onto the same origin. If Meta still refuses the request, the
-  adapter retries once with every tool aliased. See [ADAPTER_CONTRACT.md](ADAPTER_CONTRACT.md).
+  routes that ignore that override the plugin rewrites the assembled request onto the same origin.
+  Routing does not depend on the credential type: an existing `meta` API key and the V2 Muse OAuth
+  connection both go through the adapter; the OAuth access token only overrides `Authorization`
+  when the V2 sign-in is active. If Meta still refuses the request, the adapter retries once with
+  every tool aliased. See [ADAPTER_CONTRACT.md](ADAPTER_CONTRACT.md).
 - V1 storage: the OpenCode auth store is the primary source, and the loader falls back to the
   legacy cache only when the store has no key.
 - V2 storage: the credential lives in the OpenCode integration store, and no local cache is
@@ -68,10 +71,9 @@ token from the login flow is kept in memory only and is never written to disk.
 
 ## Requirements
 
-- opencode with plugin support, including the v2 plugin module shape accepted by opencode 1.18.29+
-  and 2.x.
-- The loopback adapter requires the V2 plugin API (opencode 2.x). V1 installs keep authenticating
-  but still receive Meta's `client_attestation_denied` 403.
+- opencode 2.2.4 or newer for inference through the adapter (the V2 plugin module shape; 2.2.0
+  loads the plugin but does not invoke its setup). On the V1 plugin API the plugin keeps
+  authenticating but still receives Meta's `client_attestation_denied` 403.
 - Node.js 22.6 or newer for development; CI runs Node.js 22 and 24.
 - An active Muse Code subscription on the Meta account used at login.
 

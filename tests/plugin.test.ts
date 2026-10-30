@@ -142,11 +142,11 @@ test("V2 model request hook points subscription inference at the adapter", async
   assert.equal(event.baseURL, ADAPTER_BASE_URL)
 })
 
-test("V2 model request hook leaves a pay-as-you-go connection on its endpoint", async () => {
+test("V2 model request hook points every meta connection at the adapter", async () => {
   const { hooks } = await setupV2({ type: "credential", id: "test" }, { type: "key", key: "api-key" })
   const event: { baseURL?: string } = {}
   await hooks.get("model.request")!(event)
-  assert.equal(event.baseURL, undefined)
+  assert.equal(event.baseURL, ADAPTER_BASE_URL)
 })
 
 test("V2 request hook uses the active subscription credential", async () => {
@@ -178,7 +178,7 @@ test("V2 request hook does not rewrite a request already on the adapter", async 
   assert.equal(event.request.headers.get("Authorization"), "Bearer inference-key")
 })
 
-test("V2 request hook leaves non-subscription connections unchanged", async () => {
+test("V2 request hook routes plain meta connections through the adapter", async () => {
   for (const credential of [undefined, { type: "key", key: "api-key" }, {
     type: "oauth", methodID: "other", access: "other-key",
   }]) {
@@ -187,8 +187,22 @@ test("V2 request hook leaves non-subscription connections unchanged", async () =
     const event = { request }
     await hooks.get("http.request")!(event)
     assert.equal(event.request.headers.get("Authorization"), "Bearer original")
-    assert.equal(event.request.url, "https://api.meta.ai/v1/responses")
+    assert.equal(event.request.url, `${ADAPTER_BASE_URL}/responses`)
   }
+})
+
+test("V2 request hook keeps the host API key for a plain meta credential", async () => {
+  const { hooks } = await setupV2({ type: "credential", id: "test" }, { type: "key", key: "api-key" })
+  const request = new Request("https://api.meta.ai/v1/responses", {
+    method: "POST",
+    headers: { Authorization: "Bearer llm-key", "content-type": "application/json" },
+    body: JSON.stringify({ input: "hi" }),
+  })
+  const event = { request }
+  await hooks.get("http.request")!(event)
+  assert.equal(event.request.headers.get("Authorization"), "Bearer llm-key")
+  assert.equal(event.request.url, `${ADAPTER_BASE_URL}/responses`)
+  assert.deepEqual(await event.request.json(), { input: "hi" })
 })
 
 test("server plugin returns the auth hook for provider meta", async () => {
