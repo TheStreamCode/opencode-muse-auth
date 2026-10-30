@@ -1,6 +1,6 @@
 {
   "name": "opencode-muse-auth",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Unofficial and experimental: Muse Spark in opencode using a Muse Code subscription credential. May conflict with Meta's terms; use at your own risk. See DISCLAIMER.md.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

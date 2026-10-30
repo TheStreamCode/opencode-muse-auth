@@ -7,8 +7,8 @@ Muse Code subscription sign-in for opencode
 [![npm](https://img.shields.io/npm/v/opencode-muse-auth)](https://www.npmjs.com/package/opencode-muse-auth)
 
 opencode plugin that registers the **Muse Code subscription** login method for the built-in `meta`
-provider, so Meta Muse Spark is billed to a Muse Code monthly subscription instead of per-token API
-credits. No API key to copy and no third-party CLI to install.
+provider. No API key to copy and no third-party CLI to install. A successful login does not guarantee
+model access: Meta may reject subscription requests from clients other than Muse Code.
 
 > **Unofficial and experimental.** This plugin uses a Muse Code subscription credential from
 > opencode. Meta's terms limit that credential to Muse Code, so this use may not be supported and
@@ -34,6 +34,7 @@ Add the plugin to `opencode.json`; opencode installs it from npm:
 3. Open the printed Meta device page, enter the printed code, and approve the login in your own
    browser. The login completes by itself.
 4. Select a `muse-*` model exposed by the `meta` provider, for example `meta/muse-spark-1.3`.
+   Meta's subscription restrictions still apply to requests from opencode.
 
 The plugin mints a stable, account-bound inference key and hands it to opencode. The OAuth access
 token from the login flow is kept in memory only and is never written to disk.
@@ -96,7 +97,15 @@ the package installation, then restart opencode.
 
 ### Requests fail with 401 or access was revoked
 
-The key was rotated or revoked. Re-run `/connect` once; the plugin never re-mints on its own.
+A 401 may indicate a rotated or revoked key. Re-run `/connect` once; the plugin never re-mints on
+its own.
+
+### Meta rejects subscription requests from this client
+
+Meta may return a 403 mentioning `client_attestation_denied` or that Muse Code subscriptions cover
+the Muse Code client only. This is a client restriction, not evidence of an expired key. Signing in
+again does not remove the restriction. Use Muse Code for the subscription, or a separate
+pay-as-you-go Meta Model API key for other clients, subject to Meta's terms.
 
 ### The login times out or is denied
 
