@@ -7,8 +7,10 @@ Muse Code subscription sign-in for opencode
 [![npm](https://img.shields.io/npm/v/opencode-muse-auth)](https://www.npmjs.com/package/opencode-muse-auth)
 
 opencode plugin that registers the **Muse Code subscription** login method for the built-in `meta`
-provider. No API key to copy and no third-party CLI to install. A successful login does not guarantee
-model access: Meta may reject subscription requests from clients other than Muse Code.
+provider. No API key to copy and no third-party CLI to install. On the V2 plugin API the plugin also
+routes subscription inference through a local wire adapter that keeps requests compatible with Muse
+Code's tool declarations; see [ADAPTER_CONTRACT.md](ADAPTER_CONTRACT.md). A successful login still
+does not guarantee model access: Meta may reject or restrict this use.
 
 > **Unofficial and experimental.** This plugin uses a Muse Code subscription credential from
 > opencode. Meta's terms limit that credential to Muse Code, so this use may not be supported and
@@ -34,7 +36,9 @@ Add the plugin to `opencode.json`; opencode installs it from npm:
 3. Open the printed Meta device page, enter the printed code, and approve the login in your own
    browser. The login completes by itself.
 4. Select a `muse-*` model exposed by the `meta` provider, for example `meta/muse-spark-1.3`.
-   Meta's subscription restrictions still apply to requests from opencode.
+   On opencode 2.x the plugin routes inference through the local adapter, so client tool names that
+   collide with Muse Code's builtins no longer trip Meta's client gate. The V1 plugin API still
+   sends requests straight to `api.meta.ai` and keeps receiving the 403.
 
 The plugin mints a stable, account-bound inference key and hands it to opencode. The OAuth access
 token from the login flow is kept in memory only and is never written to disk.
@@ -47,6 +51,12 @@ token from the login flow is kept in memory only and is never written to disk.
   inference key through the Model API.
 - Routes through the Responses API; the `meta.txt` system prompt applies automatically to `muse-*`
   model ids.
+- Runs a loopback wire adapter for the V2 plugin API: it aliases the client tool names that collide
+  with Muse Code's builtins on the way to `api.meta.ai`, restores them in the response, and
+  normalizes parameters Meta rejects (`tool_choice`, reasoning effort, output-token floor,
+  encrypted-reasoning include). The adapter's `/v1` origin becomes the per-request base URL; on
+  routes that ignore that override the plugin rewrites the assembled request onto the same origin. If Meta still refuses the request, the
+  adapter retries once with every tool aliased. See [ADAPTER_CONTRACT.md](ADAPTER_CONTRACT.md).
 - V1 storage: the OpenCode auth store is the primary source, and the loader falls back to the
   legacy cache only when the store has no key.
 - V2 storage: the credential lives in the OpenCode integration store, and no local cache is
@@ -60,6 +70,8 @@ token from the login flow is kept in memory only and is never written to disk.
 
 - opencode with plugin support, including the v2 plugin module shape accepted by opencode 1.18.29+
   and 2.x.
+- The loopback adapter requires the V2 plugin API (opencode 2.x). V1 installs keep authenticating
+  but still receive Meta's `client_attestation_denied` 403.
 - Node.js 22.6 or newer for development; CI runs Node.js 22 and 24.
 - An active Muse Code subscription on the Meta account used at login.
 
@@ -71,14 +83,17 @@ token from the login flow is kept in memory only and is never written to disk.
 | Auth store | Primary credential storage used by the V1 loader. | `~/.local/share/opencode/auth.json` |
 | Legacy cache | Read-only fallback for credentials written by earlier versions. | `~/.config/opencode/muse-code-sub.json` |
 | `/connect` method | Selects Muse Code subscription login for the `meta` provider. | `meta` provider |
+| `MUSE_CODE_ADAPTER` | `off` keeps the local proxy but disables the tool-name reshaping and parameter normalization. | unset |
 
 ## Privacy and security
 
 The inference key is held by opencode: in the V1 auth store or the V2 integration store. The
 legacy cache, when present, stores only `apiKey`, `accountId`, and `email`; the OAuth access token
 is never written to disk. The plugin talks only to `auth.meta.com` for the device login and
-`api.meta.ai` for key minting and inference. See [SECURITY.md](SECURITY.md) for vulnerability
-reporting.
+`api.meta.ai` for key minting and inference. The V2 wire adapter listens on `127.0.0.1` only,
+forwards the `Authorization` header unchanged, and never reads, stores or logs credentials,
+request bodies or response bodies. See [SECURITY.md](SECURITY.md) for vulnerability reporting and
+[ADAPTER_CONTRACT.md](ADAPTER_CONTRACT.md) for the inference wire rules.
 
 To remove access:
 
@@ -103,9 +118,19 @@ its own.
 ### Meta rejects subscription requests from this client
 
 Meta may return a 403 mentioning `client_attestation_denied` or that Muse Code subscriptions cover
-the Muse Code client only. This is a client restriction, not evidence of an expired key. Signing in
-again does not remove the restriction. Use Muse Code for the subscription, or a separate
-pay-as-you-go Meta Model API key for other clients, subject to Meta's terms.
+the Muse Code client only. With the V2 adapter running this should not happen for tool names that
+collide with Muse Code's builtins. If it appears anyway, one of these is true:
+
+- the adapter could not bind its loopback port; opencode's log records
+  `the local request adapter could not start`, and the provider stays on the direct endpoint;
+- `MUSE_CODE_ADAPTER=off` is set, which keeps the proxy but disables the reshaping;
+- you are on the V1 plugin API, which has no adapter;
+- Meta changed the gate, for example to a real per-client signature. Nothing in this plugin can
+  forge one.
+
+This is a client restriction, not evidence of an expired key. Signing in again does not remove it.
+Use Muse Code for the subscription, or a separate pay-as-you-go Meta Model API key for other
+clients, subject to Meta's terms.
 
 ### The login times out or is denied
 

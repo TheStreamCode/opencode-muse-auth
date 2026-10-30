@@ -1,7 +1,7 @@
 {
   "name": "opencode-muse-auth",
-  "version": "0.4.1",
-  "description": "Unofficial and experimental: Muse Spark in opencode using a Muse Code subscription credential. May conflict with Meta's terms; use at your own risk. See DISCLAIMER.md.",
+  "version": "0.5.0",
+  "description": "Unofficial and experimental: Muse Spark in opencode using a Muse Code subscription credential, with a local loopback adapter for Meta's subscription wire format. May conflict with Meta's terms; use at your own risk. See DISCLAIMER.md.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -33,7 +33,8 @@
     "LICENSE",
     "NOTICE",
     "DISCLAIMER.md",
-    "AUTH_CONTRACT.md"
+    "AUTH_CONTRACT.md",
+    "ADAPTER_CONTRACT.md"
   ],
   "scripts": {
     "build": "tsc",

@@ -2,8 +2,24 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import plugin from "../dist/index.js"
+import plugin, { setupV2 as runSetupV2 } from "../dist/index.js"
 import localPlugin from "../index.js"
+
+const ADAPTER_BASE_URL = "http://127.0.0.1:43219/v1"
+
+/** Stub the loopback adapter so the setup tests never bind a real port. */
+function makeAdapterStub(url = ADAPTER_BASE_URL) {
+  const closed: boolean[] = []
+  return {
+    closed,
+    factory: async () => ({
+      baseUrl: url,
+      close: async () => {
+        closed.push(true)
+      },
+    }),
+  }
+}
 
 test("local directory entrypoint exposes the built plugin", () => {
   assert.equal(localPlugin, plugin)
@@ -18,23 +34,28 @@ test("default export satisfies the opencode v2 PluginModule shape", () => {
   assert.equal(typeof plugin.setup, "function")
 })
 
-async function setupV2(connection = undefined, credential = undefined) {
+async function setupV2(connection = undefined, credential = undefined, stub = makeAdapterStub()) {
   let registration
-  let requestHook
-  await plugin.setup({
-    integration: {
-      transform: async (transform) => transform({ method: { update: (value) => { registration = value } } }),
-      connection: { active: async () => connection, resolve: async () => credential },
-    },
-    session: {
-      hook: async (name, callback, scope) => {
-        assert.equal(name, "http.request")
-        assert.deepEqual(scope, { providerID: "meta" })
-        requestHook = callback
+  const hooks = new Map<string, (event: any) => Promise<void> | void>()
+  const cleanup = await runSetupV2(
+    {
+      integration: {
+        transform: async (transform: (editor: any) => void) => {
+          transform({ method: { update: (value: any) => { registration = value } } })
+        },
+        connection: { active: async () => connection, resolve: async () => credential },
+      },
+      session: {
+        hook: async (name: string, callback: (event: any) => Promise<void> | void, scope: unknown) => {
+          assert.deepEqual(scope, { providerID: "meta" })
+          hooks.set(name, callback)
+          return { dispose: async () => {} }
+        },
       },
     },
-  })
-  return { registration, requestHook }
+    { adapter: stub.factory },
+  )
+  return { registration, hooks, cleanup, stub }
 }
 
 test("V2 setup registers Meta subscription authentication", async () => {
@@ -77,23 +98,96 @@ test("V2 device flow returns only the inference key as its credential", async ()
   }
 })
 
-test("V2 request hook uses the active subscription credential", async () => {
-  const { requestHook } = await setupV2({ type: "credential", id: "test" }, {
+test("V2 setup registers both adapter hooks for the meta provider", async () => {
+  const { hooks } = await setupV2()
+  assert.deepEqual([...hooks.keys()], ["model.request", "http.request"])
+})
+
+test("V2 teardown closes the loopback adapter", async () => {
+  const { cleanup, stub } = await setupV2()
+  assert.deepEqual(stub.closed, [])
+  await cleanup()
+  assert.deepEqual(stub.closed, [true])
+})
+
+test("V2 setup keeps the direct endpoint and logs when the adapter cannot start", async () => {
+  const errors: string[] = []
+  const original = console.error
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map(String).join(" "))
+  }
+  try {
+    const stub = {
+      factory: async (): Promise<never> => {
+        throw new Error("bind failed")
+      },
+    }
+    const { hooks, cleanup } = await setupV2(undefined, undefined, stub)
+    assert.deepEqual([...hooks.keys()], ["http.request"])
+    assert.equal(errors.length, 1)
+    assert.match(errors[0], /adapter could not start/)
+    assert.match(errors[0], /bind failed/)
+    await cleanup()
+  } finally {
+    console.error = original
+  }
+})
+
+test("V2 model request hook points subscription inference at the adapter", async () => {
+  const { hooks } = await setupV2({ type: "credential", id: "test" }, {
     type: "oauth", methodID: "muse-code-subscription", access: "inference-key",
   })
-  const request = new Request("https://api.meta.ai/v1/responses")
-  await requestHook({ request })
-  assert.equal(request.headers.get("Authorization"), "Bearer inference-key")
+  const event: { baseURL?: string } = {}
+  await hooks.get("model.request")!(event)
+  assert.equal(event.baseURL, ADAPTER_BASE_URL)
+})
+
+test("V2 model request hook leaves a pay-as-you-go connection on its endpoint", async () => {
+  const { hooks } = await setupV2({ type: "credential", id: "test" }, { type: "key", key: "api-key" })
+  const event: { baseURL?: string } = {}
+  await hooks.get("model.request")!(event)
+  assert.equal(event.baseURL, undefined)
+})
+
+test("V2 request hook uses the active subscription credential", async () => {
+  const { hooks } = await setupV2({ type: "credential", id: "test" }, {
+    type: "oauth", methodID: "muse-code-subscription", access: "inference-key",
+  })
+  const request = new Request("https://api.meta.ai/v1/responses", {
+    method: "POST",
+    headers: { Authorization: "Bearer original", "content-type": "application/json" },
+    body: JSON.stringify({ input: "hi" }),
+  })
+  const event = { request }
+  await hooks.get("http.request")!(event)
+  assert.equal(event.request.headers.get("Authorization"), "Bearer inference-key")
+  assert.equal(event.request.url, `${ADAPTER_BASE_URL}/responses`)
+  assert.equal(event.request.method, "POST")
+  assert.equal(event.request.headers.get("content-type"), "application/json")
+  assert.deepEqual(await event.request.json(), { input: "hi" })
+})
+
+test("V2 request hook does not rewrite a request already on the adapter", async () => {
+  const { hooks } = await setupV2({ type: "credential", id: "test" }, {
+    type: "oauth", methodID: "muse-code-subscription", access: "inference-key",
+  })
+  const request = new Request(`${ADAPTER_BASE_URL}/responses`, { method: "POST", body: "{}" })
+  const event = { request }
+  await hooks.get("http.request")!(event)
+  assert.equal(event.request, request)
+  assert.equal(event.request.headers.get("Authorization"), "Bearer inference-key")
 })
 
 test("V2 request hook leaves non-subscription connections unchanged", async () => {
   for (const credential of [undefined, { type: "key", key: "api-key" }, {
     type: "oauth", methodID: "other", access: "other-key",
   }]) {
-    const { requestHook } = await setupV2({ type: "credential", id: "test" }, credential)
+    const { hooks } = await setupV2({ type: "credential", id: "test" }, credential)
     const request = new Request("https://api.meta.ai/v1/responses", { headers: { Authorization: "Bearer original" } })
-    await requestHook({ request })
-    assert.equal(request.headers.get("Authorization"), "Bearer original")
+    const event = { request }
+    await hooks.get("http.request")!(event)
+    assert.equal(event.request.headers.get("Authorization"), "Bearer original")
+    assert.equal(event.request.url, "https://api.meta.ai/v1/responses")
   }
 })
 

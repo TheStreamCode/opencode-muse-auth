@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-30
+
+### Added
+
+- Local loopback wire adapter for the V2 plugin API. It aliases only the client tool names that
+  collide with the 40-name Muse builtin set pinned in `ADAPTER_CONTRACT.md` (goal, cron, session
+  and patch families included), restores them in streaming and JSON responses, and normalizes
+  `tool_choice`, reasoning effort, the output-token floor and the encrypted-reasoning include.
+  Subscription inference now uses the adapter's `/v1` origin as its base URL, so requests no longer
+  fail with HTTP 403 `client_attestation_denied`. If the gate still refuses, the adapter retries
+  once with every tool aliased.
+- `ADAPTER_CONTRACT.md` pins the wire rules and the measured gate trigger; `ADAPTER_VERSION` is
+  the matching code constant.
+- `MUSE_CODE_ADAPTER=off` disables the reshaping while keeping the loopback proxy, so no endpoint
+  goes stale.
+
+### Quality of service
+
+- The adapter binds `127.0.0.1` only, on the first free port of `43219`-`43222`, then an ephemeral
+  port. Paths other than the Responses and Chat completion paths are relayed untouched, and SSE is
+  streamed line by line. If the adapter cannot bind, the plugin logs the failure and leaves the
+  provider on the direct endpoint.
+- The V2 request rewrite is idempotent and scoped to the active Muse Code subscription; a
+  pay-as-you-go `meta` key or another connection keeps its endpoint.
+
+### Security
+
+- The adapter forwards `Authorization` unchanged and never reads, stores or logs credentials,
+  request bodies or response bodies. The plugin reshapes tool declarations only to match the Muse
+  Code wire format after Meta's 2026-10-29 client restriction; it forges no credential, token or
+  signature. Meta may treat the reshaping as a violation of its terms, and subscription revocation
+  remains possible at any time; see [DISCLAIMER.md](DISCLAIMER.md).
+
+### Changed
+
+- Working inference now requires the V2 plugin API (opencode 2.x). The V1 `server()` export keeps
+  authenticating but still receives Meta's 403.
+- Package description and `files` mention the adapter and its contract document.
+
 ## [0.4.1] - 2026-10-30
 
 ### Fixed
@@ -82,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial `meta` provider auth hook for opencode: Meta device login, account-bound inference key,
   and Responses API transport.
 
+[0.5.0]: https://github.com/TheStreamCode/opencode-muse-auth/releases/tag/v0.5.0
 [0.4.0]: https://github.com/TheStreamCode/opencode-muse-auth/releases/tag/v0.4.0
 [0.3.0]: https://github.com/TheStreamCode/opencode-muse-auth/releases/tag/v0.3.0
 [0.2.0]: https://github.com/TheStreamCode/opencode-muse-auth/releases/tag/v0.2.0

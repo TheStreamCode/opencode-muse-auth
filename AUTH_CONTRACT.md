@@ -1,11 +1,12 @@
 # Muse auth contract (v1)
 
-The three Muse Code plugins implement the same Meta device-code flow. Change
-this file and the pinned constants/tests together in all three repositories:
+The four Muse Code plugins implement the same Meta device-code flow. Change
+this file and the pinned constants/tests together in all four repositories:
 
 - `opencode-muse-auth`
 - `hermes-muse-code`
 - `openclaw-muse-code`
+- `dsh-muse-code`
 
 ## Wire contract
 
@@ -18,6 +19,7 @@ this file and the pinned constants/tests together in all three repositories:
 | API version header | `x-api-version: 1.0.0` |
 | Cache fields | `apiKey`, `accountId`, `email` (never the OAuth access token) |
 | Inference base URL | `https://api.meta.ai/v1` |
+| Inference wire adapter | see `ADAPTER_CONTRACT.md` (v3) |
 
 ## Behaviour
 
@@ -28,5 +30,11 @@ this file and the pinned constants/tests together in all three repositories:
   key; reject an inactive subscription or a pending payment.
 - Persistence: only the inference key and account identity are stored; the
   OAuth access token stays in memory.
+- Inference traffic on the V2 plugin API goes through the loopback adapter
+  described in `ADAPTER_CONTRACT.md` (tool-name aliasing, parameter
+  normalization, response name restoration). The adapter is part of the wire
+  contract: a change to those rules bumps `ADAPTER_VERSION` and the pinned
+  tests in every repository that vendors the adapter. The V1 code path keeps
+  sending directly to `https://api.meta.ai/v1`.
 - Any change to this contract bumps `AUTH_CONTRACT_VERSION` in the code and
-  requires updating the pinned tests in all three repositories.
+  requires updating the pinned tests in all four repositories.
