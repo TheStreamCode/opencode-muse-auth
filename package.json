@@ -43,6 +43,7 @@
     "prepublishOnly": "npm run build"
   },
   "overrides": {
+    "glob": "^14.0.2",
     "effect": {
       "toml": "^5.0.1"
     },
