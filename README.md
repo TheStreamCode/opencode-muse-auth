@@ -1,4 +1,4 @@
-# opencode-muse-auth
+# Muse Code Auth for opencode
 
 Muse Code subscription sign-in for opencode
 
@@ -174,5 +174,4 @@ MIT — see [`LICENSE`](LICENSE). The software is provided "as is"; see
 ---
 
 Maintained by [Michael Gasperini (Mikesoft)](https://mikesoft.it).
-If this project is useful to you, consider
-[sponsoring its maintenance](https://github.com/sponsors/TheStreamCode).
+If this project is useful to you, consider [sponsoring its maintenance](https://github.com/sponsors/TheStreamCode).
